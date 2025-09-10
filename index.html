@@ -1,10 +1,11 @@
-<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gurted Chat</title>
+  <title>Gronk</title>
+  <meta name="description" content="I'm Gronk. Just a conversational dude. I like to chat and answer questions.">
+  <icon src="gurt://cdn.73206141212.com/share/gronk2.png"></icon>
   <style>
     :root {
       --bg: #0b1220;
@@ -16,32 +17,70 @@
       --primary: #3b82f6;
       --primary-hover: #2563eb;
       --assistant: #374151;
+      --sidebar-bg: #0e1525;
+      --sidebar-item: #1b2437;
+      --sidebar-item-hover: #232e45;
     }
     *, *::before, *::after { box-sizing: border-box; }
     html, body { height: 100%; }
     body {
       margin: 0;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
       color: var(--text);
       background: radial-gradient(1200px 800px at 20% -10%, #0f172a 0%, #0b1220 45%, #080d18 100%);
       font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
     }
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 5;
-      background: rgba(15, 23, 42, 0.7);
-      backdrop-filter: blur(8px);
-      border-bottom: 1px solid var(--border);
-      padding: 12px 16px;
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      overflow: hidden;
+      position: relative;
     }
-    header h1 {
-      margin: 0;
-      font-size: 16px;
-      letter-spacing: 0.2px;
+    /* Sidebar */
+    #sidebar {
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      z-index: 20;
     }
+    .sidebar-top { padding: 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+    #close-sidebar { display: none; background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+    #close-sidebar:hover { background: var(--sidebar-item-hover); border-color: #3a4763; }
+    #new-chat {
+      width: 100%;
+      background: var(--sidebar-item);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: left;
+      cursor: pointer;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    #new-chat:hover { background: var(--sidebar-item-hover); border-color: #3a4763; }
+    .chat-list { flex: 1 1 auto; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+    .chat-item {
+      width: 100%;
+      background: transparent;
+      color: var(--text);
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: left;
+      cursor: pointer;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .chat-item:hover { background: var(--sidebar-item-hover); border-color: #3a4763; }
+    .chat-item.active { background: var(--sidebar-item); border-color: var(--border); }
+
+    /* Main area */
+    main { display: flex; flex-direction: column; min-width: 0; }
+    #topbar { display: none; position: sticky; top: 0; z-index: 10; background: rgba(15,23,42,.8); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: 8px 12px; align-items: center; gap: 8px; }
+    #open-sidebar { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 32px; background: var(--sidebar-item); color: var(--text); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+    #open-sidebar:hover { background: var(--sidebar-item-hover); border-color: #3a4763; }
+    #topbar .title { font-weight: 600; }
     #chat {
       flex: 1 1 auto;
       display: flex;
@@ -103,58 +142,36 @@
     #send:hover { background: var(--primary-hover); }
     #send:disabled { opacity: 0.5; cursor: not-allowed; }
     .thinking { opacity: 0.8; }
+    @media (max-width: 880px) {
+      .app { grid-template-columns: 1fr; }
+      #sidebar { display: none; position: absolute; left: 0; top: 0; bottom: 0; width: 80%; max-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.45); }
+      #topbar { display: flex; }
+      #close-sidebar { display: inline-flex; }
+      .app.sidebar-open #sidebar { display: flex; }
+    }
   </style>
   <script src="gurt.lua"></script>
 </head>
 <body>
-  <header>
-    <h1>Gurted — Chat</h1>
-  </header>
-  <div id="chat" aria-live="polite"></div>
-  <div id="input-bar">
-    <input id="input" type="text" placeholder="Type a message…" autocomplete="off" />
-    <button id="send" type="button">Send</button>
+  <div id="app" class="app">
+    <aside id="sidebar">
+      <div class="sidebar-top">
+        <button id="new-chat" type="button">+ New chat</button>
+        <button id="close-sidebar" type="button" aria-label="Close sidebar">✕</button>
+      </div>
+      <div id="chat-list" class="chat-list" aria-label="Chats"></div>
+    </aside>
+    <main>
+      <div id="topbar">
+        <button id="open-sidebar" aria-label="Open sidebar">☰</button>
+        <div class="title">Gronk</div>
+      </div>
+      <div id="chat" aria-live="polite"></div>
+      <div id="input-bar">
+        <input id="input" type="text" placeholder="Type a message…" autocomplete="off" />
+        <button id="send" type="button">Send</button>
+      </div>
+    </main>
   </div>
 </body>
 </html>
-=======
-<head>
-  <title>Gronk</title>
-  <meta name="description" content="I'm Gronk. Just a conversational dude. I like to chat and answer questions.">
-  <icon src="https://cdn.73206141212.com/share/gronk2.png"></icon>
-  <style>
-    body {
-      flex flex-col h-full bg-[#111827] text-white font-sans;
-    }
-    #chat {
-      flex-grow-1 overflow-y-auto p-4 flex flex-col gap-4;
-      h-[64]
-    }
-    .message {
-      max-w-[70%] p-3 rounded-lg;
-    }
-    .user {
-      self-end bg-[#3b82f6];
-    }
-    .bot {
-      self-start bg-[#374151];
-    }
-    #input-bar {
-      flex flex-row gap-2 p-4 border-t border-[#374151] bg-[#1f2937];
-    }
-    #input {
-      w-100 bg-[#111827] border border-[#374151] rounded-lg px-3 py-2;
-    }
-  </style>
-  <script src="gurt.lua"></script>
-</head>
-
-<body style="h-full w-full">
-  <p id="chat" style="h-46 m-4">_</p>
-  <!-- DO NOT REMOVE THAT UNDERSCORE OVER THERE, gurted quirks -->
-  <div id="input-bar" style="">
-    <input id="input" type="text" placeholder="Type a message..." style="w-[140%] h-10" />
-    <button id="send" style="bg-[#fff] text-black px-4 py-2 rounded-lg hover:bg-[#2563eb] h-10">Send</button>
-  </div>
-</body>
->>>>>>> other_repo/main

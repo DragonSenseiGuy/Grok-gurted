@@ -1,161 +1,178 @@
--- keep chat history in memory
+-- ChatGPT-like multi-chat UI and logic
+
+-- Elements
 local send = gurt.select('#send')
 local input = gurt.select('#input')
-local history = {}
-<<<<<<< HEAD
+local chatEl = gurt.select('#chat')
+local newChatBtn = gurt.select('#new-chat')
+local chatListEl = gurt.select('#chat-list')
+local appEl = gurt.select('#app')
+local openSidebarBtn = gurt.select('#open-sidebar')
+local closeSidebarBtn = gurt.select('#close-sidebar')
 
+-- Server (keeps your updated HTTPS endpoint by default)
+local SERVER = "gurt://s.73206141212.com"
+-- local ALT_SERVER = "gurt://10.0.0.155" -- fallback if needed
+
+-- State
+local chats = {}
+local currentChatId = nil
 local busy = false
+local sidebarOpen = false
+local baseAppClass = 'app'
+
+-- Utils
+local function uid()
+    return tostring(os.time()) .. "-" .. tostring(math.random(1000, 999999))
+end
 
 local function autoscroll()
-    local chat = gurt.select('#chat')
-    if chat and chat.scrollHeight then
-        chat.scrollTop = chat.scrollHeight
+    if chatEl and chatEl.scrollHeight then
+        chatEl.scrollTop = chatEl.scrollHeight
     else
-        -- naive fallback
-        chat.scrollTop = 999999
+        chatEl.scrollTop = 999999
     end
 end
 
+local function applySidebarState()
+    if not appEl then return end
+    if sidebarOpen then
+        appEl:setAttribute('class', baseAppClass .. ' sidebar-open')
+    else
+        appEl:setAttribute('class', baseAppClass)
+    end
+end
+
+local function makeTitleFrom(text)
+    if not text or text == '' then return 'New chat' end
+    local oneLine = string.gsub(text, "\n", " ")
+    if #oneLine > 40 then
+        return string.sub(oneLine, 1, 40) .. "…"
+    end
+    return oneLine
+end
+
+local function getCurrentChat()
+    for _, c in ipairs(chats) do
+        if c.id == currentChatId then return c end
+    end
+    return nil
+end
+
+-- Rendering
+local function clearChat()
+    -- Setting text clears children in this environment
+    chatEl.text = ''
+end
+
 function appendMessage(role, text, streaming)
-    local chat = gurt.select('#chat')
-
-    local msg = gurt.create('div', { text = text or "" })
+    local msg = gurt.create('div', { text = text or '' })
     msg:setAttribute('class', 'message ' .. role .. (streaming and ' thinking' or ''))
-
-    chat:append(msg)
+    chatEl:append(msg)
     autoscroll()
-
     return msg
 end
 
+local function renderChatHistory()
+    clearChat()
+    local c = getCurrentChat()
+    if not c then return end
+    for i = 1, #c.history do
+        local m = c.history[i]
+        appendMessage(m.role, m.content, false)
+    end
+end
+
+local function renderSidebar()
+    if not chatListEl then return end
+    chatListEl.text = ''
+    for _, c in ipairs(chats) do
+        local btn = gurt.create('button', { text = c.title or 'New chat' })
+        btn:setAttribute('class', 'chat-item' .. (c.id == currentChatId and ' active' or ''))
+        btn:on('click', function()
+            currentChatId = c.id
+            renderSidebar()
+            renderChatHistory()
+        end)
+        chatListEl:append(btn)
+    end
+end
+
+-- Chat management
+local function newChat()
+    local c = { id = uid(), title = 'New chat', history = {} }
+    table.insert(chats, 1, c) -- newest on top like ChatGPT
+    currentChatId = c.id
+    renderSidebar()
+    renderChatHistory()
+end
+
+-- Messaging
 function sendMessage(prompt)
     if busy then return end
+    local c = getCurrentChat()
+    if not c then newChat(); c = getCurrentChat() end
 
-    appendMessage("user", prompt, false)
-    table.insert(history, { role = "user", content = prompt })
+    appendMessage('user', prompt, false)
+    table.insert(c.history, { role = 'user', content = prompt })
+
+    if c.title == 'New chat' or not c.title or c.title == '' then
+        c.title = makeTitleFrom(prompt)
+        renderSidebar()
+    end
 
     busy = true
     local originalBtnText = send.text or 'Send'
     send.text = 'Sending…'
 
-    local server = "http://10.0.0.155:23100"
-=======
-local inputBar = gurt.select("#input-bar");
-local chat = gurt.select('#chat')
-
--- all messages live in here
-local allMessages = {}
-chat.text = "Start chatting with Gronk"
-function appendMessage(role, text, streaming)
-    local message = { role = role, text = text or "" }
-    table.insert(allMessages, message)
-
-    -- force initial render
-    local function render()
-        local combined = {}
-        for _, m in ipairs(allMessages) do
-            table.insert(combined, string.replace(string.replace(m.role, "assistant", "Gronk"), "user", "You") .. ": " .. m.text)
-        end
-        local text = table.concat(combined, "\n\n") -- spacing
-        chat.text = text
-    end
-
-    render()
-
-    -- return updater function
-    return function(newText)
-        message.text = newText
-        render()
-    end
-end
-
-function countNewlines(str)
-    local count = 0
-    for _ in str:gmatch("\n") do
-        count = count + 1
-    end
-    return count
-end
-
-function sendMessage(prompt)
-    appendMessage("user", prompt, false)
-    table.insert(history, { role = "user", content = prompt })
-
-    local server = "https://s.73206141212.com:23100"
->>>>>>> other_repo/main
-    local response = fetch(server .. "/submit", {
+    local response = fetch(SERVER .. "/submit", {
         method = "POST",
         headers = { ["Content-Type"] = "application/json" },
-        body = JSON.stringify({ prompt = prompt, history = history })
+        body = JSON.stringify({ prompt = prompt, history = c.history })
     })
 
     if not response:ok() then
         trace.log("Submit failed: " .. response.status)
-<<<<<<< HEAD
         busy = false
         send.text = originalBtnText
-=======
->>>>>>> other_repo/main
         return
     end
 
     local data = response:json()
     local jobId = data.jobId
 
-<<<<<<< HEAD
-    local assistantEl = appendMessage("assistant", "", true)
-=======
-    local assistant = appendMessage("assistant", "", true)
-    assistant("thinking")
->>>>>>> other_repo/main
+    local assistantEl = appendMessage('assistant', '', true)
 
     intervalId = setInterval(function()
-        local pollResp = fetch(server .. "/poll/" .. jobId)
+        local pollResp = fetch(SERVER .. "/poll/" .. jobId)
         if pollResp:ok() then
             local pollData = pollResp:json()
             if pollData.tokens then
-<<<<<<< HEAD
                 assistantEl.text = pollData.tokens
                 autoscroll()
             end
             if pollData.done then
-                table.insert(history, { role = "assistant", content = assistantEl.text })
+                table.insert(c.history, { role = 'assistant', content = assistantEl.text })
                 clearInterval(intervalId)
                 trace.log("Finished " .. pollData.tokens)
                 assistantEl:setAttribute('class', 'message assistant')
                 busy = false
                 send.text = originalBtnText
                 autoscroll()
-=======
-                assistant(pollData.tokens)
-            end
-            if pollData.done then
-                table.insert(history, { role = "assistant", content = pollData.tokens })
-                clearInterval(intervalId)
-                trace.log("Finished " .. pollData.tokens)
-                assistant(pollData.tokens)
->>>>>>> other_repo/main
             end
         else
             trace.log("Poll failed: " .. pollResp.status)
         end
-<<<<<<< HEAD
-    end, 1000)
+    end, 200)
 end
 
-=======
-    end, 100)
-end
-
-
->>>>>>> other_repo/main
+-- Events
 send:on('click', function()
     local query = input.value
     if query ~= '' then
         sendMessage(query)
-        input.value = '' -- clear input
+        input.value = ''
     end
-<<<<<<< HEAD
 end)
 
 -- Enter to send
@@ -168,6 +185,29 @@ input:on('keydown', function(ev)
         end
     end
 end)
-=======
-end)
->>>>>>> other_repo/main
+
+-- New chat button
+if newChatBtn then
+    newChatBtn:on('click', function()
+        if busy then return end
+        newChat()
+    end)
+end
+
+-- Sidebar toggles (mobile)
+if openSidebarBtn then
+    openSidebarBtn:on('click', function()
+        sidebarOpen = true
+        applySidebarState()
+    end)
+end
+if closeSidebarBtn then
+    closeSidebarBtn:on('click', function()
+        sidebarOpen = false
+        applySidebarState()
+    end)
+end
+
+-- Init
+applySidebarState()
+newChat()
