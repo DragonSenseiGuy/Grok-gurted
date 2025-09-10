@@ -65,9 +65,21 @@ local function clearChat()
     chatEl.text = ''
 end
 
+local function bubbleStyle(role, streaming)
+    local base = 'max-w-[80%] rounded-[12] px-3 py-2'
+    if role == 'user' then
+        base = base .. ' self-end bg-[#3b82f6] text-white'
+    else
+        base = base .. ' self-start bg-[#374151]'
+    end
+    if streaming then
+        base = base .. ' opacity-80'
+    end
+    return base
+end
+
 function appendMessage(role, text, streaming)
-    local msg = gurt.create('div', { text = text or '' })
-    msg:setAttribute('class', 'message ' .. role .. (streaming and ' thinking' or ''))
+    local msg = gurt.create('div', { text = text or '', style = bubbleStyle(role, streaming) })
     chatEl:append(msg)
     autoscroll()
     return msg
@@ -87,8 +99,9 @@ local function renderSidebar()
     if not chatListEl then return end
     chatListEl.text = ''
     for _, c in ipairs(chats) do
-        local btn = gurt.create('button', { text = c.title or 'New chat' })
-        btn:setAttribute('class', 'chat-item' .. (c.id == currentChatId and ' active' or ''))
+        local isActive = (c.id == currentChatId)
+        local style = 'w-full text-left px-3 py-2 rounded border border-[#2b3444] ' .. (isActive and 'bg-[#1b2437]' or 'bg-transparent hover:bg-[#232e45]')
+        local btn = gurt.create('button', { text = c.title or 'New chat', style = style })
         btn:on('click', function()
             currentChatId = c.id
             renderSidebar()
@@ -155,7 +168,7 @@ function sendMessage(prompt)
                 table.insert(c.history, { role = 'assistant', content = assistantEl.text })
                 clearInterval(intervalId)
                 trace.log("Finished " .. pollData.tokens)
-                assistantEl:setAttribute('class', 'message assistant')
+                assistantEl:setAttribute('style', bubbleStyle('assistant', false))
                 busy = false
                 send.text = originalBtnText
                 autoscroll()
